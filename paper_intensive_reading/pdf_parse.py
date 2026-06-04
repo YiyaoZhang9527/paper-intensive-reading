@@ -10,7 +10,23 @@ from .errors import ParseError
 from .types import Paper, Section, Paragraph, Formula, Figure, Table, Algorithm
 
 
-DANGEROUS_KEYS = {"/JS", "/JavaScript", "/AA", "/OpenAction", "/Launch", "/URI", "/SubmitForm"}
+DANGEROUS_KEYS = {"/JS", "/JavaScript", "/Launch", "/SubmitForm"}
+
+
+def _has_dangerous_combo(pdf) -> bool:
+    """检查 /AA / /OpenAction / /URI 是否与 /Launch 组合出现（才危险）。"""
+    try:
+        for obj in pdf.objects:
+            obj_str = str(obj)
+            # /Launch + 任何 URI 链接 = 真正危险
+            if "/Launch" in obj_str:
+                return True
+            # /SubmitForm + /URI = 数据外泄
+            if "/SubmitForm" in obj_str and "/URI" in obj_str:
+                return True
+    except Exception:
+        return False
+    return False
 
 
 def _scan_raw_bytes_for_dangerous(pdf_path: Path) -> str | None:
@@ -34,21 +50,36 @@ def check_pdf_safety(pdf_path: Path) -> None:
         with pikepdf.open(pdf_path) as pdf:
             if pdf.is_encrypted:
                 raise ParseError("encrypted", path=str(pdf_path))
+            # 先检查对象层（结构化检查）
             for obj in pdf.objects:
                 obj_str = str(obj)
                 for key in DANGEROUS_KEYS:
                     if key in obj_str:
                         raise ParseError("dangerous", path=str(pdf_path), detail=f"发现 {key}")
+            # 再检查危险组合（OpenAction/URI 单独无害，组合才危险）
+            if _has_dangerous_combo(pdf):
+                raise ParseError("dangerous", path=str(pdf_path), detail="发现危险组合（/Launch + /URI 或 /SubmitForm + /URI）")
     except pikepdf.PasswordError as e:
         raise ParseError("encrypted", path=str(pdf_path)) from e
     except ParseError:
         raise
     except Exception as e:
-        # Fallback: pikepdf failed to open. Still scan raw bytes for dangerous markers.
-        found = _scan_raw_bytes_for_dangerous(pdf_path)
-        if found:
-            raise ParseError("dangerous", path=str(pdf_path), detail=f"发现 {found}") from e
+        # 解析失败（malformed PDF）走降级：扫描原始字节
+        if _scan_raw_bytes_for_dangerous(pdf_path):
+            raise ParseError("dangerous", path=str(pdf_path), detail="原始字节扫描发现危险标记")
         raise ParseError("default", path=str(pdf_path), detail=str(e)) from e
+
+
+def _scan_raw_bytes_for_dangerous(pdf_path: Path) -> bool:
+    """malformed PDF 兜底：扫描原始字节。仅检测真正危险的（/JS, /Launch + URL）。"""
+    try:
+        data = pdf_path.read_bytes()
+    except Exception:
+        return False
+    # 只对真正危险的模式报警；/OpenAction 和 /URI 单独无害
+    if b"/JavaScript" in data or b"/JS " in data or b"/JS\n" in data:
+        return True
+    return False
 
 
 def extract_metadata(pdf_path: Path) -> dict:
@@ -69,20 +100,51 @@ def extract_metadata(pdf_path: Path) -> dict:
     return metadata
 
 
-SECTION_PATTERN = re.compile(
-    r"^(\d+(?:\.\d+)*)\s+([A-Z][A-Za-z][A-Za-z0-9 \-:_&/]{1,80})$",
-    re.MULTILINE,
+SECTION_PATTERN_SAME_LINE = re.compile(
+    r"^(\d+(?:\.\d+)*)\s+([A-Z][A-Za-z][A-Za-z0-9 \-:_&/()]{1,80})$"
 )
+SECTION_NUMBER_ONLY = re.compile(r"^(\d+(?:\.\d+)*)$")
 
 
-def _looks_like_section_title(line: str) -> tuple[str, str] | None:
-    line = line.strip()
+def _looks_like_section_title(lines: list[str], idx: int) -> tuple[str, str] | None:
+    """检查 lines[idx] 是否是章节标题（支持同行或下一行）。"""
+    if idx >= len(lines):
+        return None
+    line = lines[idx].strip()
     if not line or len(line) > 100:
         return None
-    m = SECTION_PATTERN.match(line)
+    # 情况 1: 同行 "2 Related work"
+    m = SECTION_PATTERN_SAME_LINE.match(line)
     if m:
-        return m.group(1), m.group(2).strip()
+        number = m.group(1)
+        if _is_real_section_number(number):
+            return number, m.group(2).strip()
+    # 情况 2: 数字独占一行，下一行是标题
+    m = SECTION_NUMBER_ONLY.match(line)
+    if m and idx + 1 < len(lines):
+        number = m.group(1)
+        next_line = lines[idx + 1].strip()
+        if (_is_real_section_number(number) and next_line
+                and len(next_line) < 100 and next_line[0].isupper()
+                and not next_line[0].isdigit()):
+            return number, next_line
     return None
+
+
+def _is_real_section_number(number: str) -> bool:
+    """判断一个数字串是否像真实章节号。规则：主部分 <= 9，子部分都 <= 9。"""
+    parts = number.split(".")
+    try:
+        # 顶级部分必须 1-9 (排除 82.47 这种表格数据)
+        if int(parts[0]) > 9 or int(parts[0]) < 1:
+            return False
+        # 子部分都 <= 9
+        for p in parts[1:]:
+            if int(p) > 9:
+                return False
+    except (ValueError, IndexError):
+        return False
+    return True
 
 
 def extract_sections(pdf_path: Path) -> list[Section]:
@@ -95,8 +157,10 @@ def extract_sections(pdf_path: Path) -> list[Section]:
     with fitz.open(pdf_path) as doc:
         for page_idx in range(doc.page_count):
             text = doc[page_idx].get_text()
-            for line in text.split("\n"):
-                parsed = _looks_like_section_title(line)
+            lines = text.split("\n")
+            i = 0
+            while i < len(lines):
+                parsed = _looks_like_section_title(lines, i)
                 if parsed is not None:
                     if current is not None:
                         current.paragraphs.append(
@@ -107,9 +171,15 @@ def extract_sections(pdf_path: Path) -> list[Section]:
                     level = number.count(".") + 1
                     current = Section(number=number, title=title, level=level)
                     body_lines = []
+                    # 跳过标题行（如果数字和标题在不同行）
+                    if SECTION_NUMBER_ONLY.match(lines[i].strip()) and i + 1 < len(lines):
+                        i += 2
+                    else:
+                        i += 1
                 else:
-                    if current is not None:
-                        body_lines.append(line)
+                    if current is not None and lines[i].strip():
+                        body_lines.append(lines[i].strip())
+                    i += 1
 
         if current is not None:
             current.paragraphs.append(
