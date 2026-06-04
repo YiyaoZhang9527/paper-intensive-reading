@@ -104,3 +104,90 @@ class TestExtractSections:
         sections = extract_sections(pdf)
         assert any(s.number == "1" for s in sections)
         assert any(s.number == "2.1" for s in sections)
+
+
+class TestExtractFormulas:
+    def test_extract_formula_numbers(self, tmp_path):
+        from paper_intensive_reading.pdf_parse import extract_formulas
+        import fitz
+
+        pdf = tmp_path / "test.pdf"
+        doc = fitz.open()
+        doc.new_page().insert_text(
+            (50, 50),
+            "We define Loss = -sum(y * log(p)) in Eq. (1).\n"
+            "The attention is QK^T / sqrt(d) in equation (2).",
+        )
+        doc.save(str(pdf))
+        doc.close()
+
+        formulas = extract_formulas(pdf)
+        assert any(f.number == "(1)" for f in formulas)
+        assert any(f.number == "(2)" for f in formulas)
+
+    def test_no_formulas_returns_empty(self, tmp_path):
+        from paper_intensive_reading.pdf_parse import extract_formulas
+        import fitz
+
+        pdf = tmp_path / "test.pdf"
+        doc = fitz.open()
+        doc.new_page().insert_text((50, 50), "Plain text without formulas.")
+        doc.save(str(pdf))
+        doc.close()
+
+        assert extract_formulas(pdf) == []
+
+
+class TestExtractFiguresTablesAlgorithms:
+    def test_figure_captions(self, tmp_path):
+        from paper_intensive_reading.pdf_parse import extract_figure_captions
+        import fitz
+
+        pdf = tmp_path / "test.pdf"
+        doc = fitz.open()
+        doc.new_page().insert_text(
+            (50, 50),
+            "Some text.\n\nFigure 1: Overview of our model architecture.\n\n"
+            "Figure 2: Training loss curves over 100 epochs.",
+        )
+        doc.save(str(pdf))
+        doc.close()
+
+        captions = extract_figure_captions(pdf)
+        assert len(captions) == 2
+        assert "Overview" in captions[0]["caption"]
+
+    def test_table_captions(self, tmp_path):
+        from paper_intensive_reading.pdf_parse import extract_tables
+        import fitz
+
+        pdf = tmp_path / "test.pdf"
+        doc = fitz.open()
+        doc.new_page().insert_text(
+            (50, 50),
+            "Table 1: Main results on ImageNet.\nTable 2: Ablation study.",
+        )
+        doc.save(str(pdf))
+        doc.close()
+
+        tables = extract_tables(pdf)
+        assert len(tables) == 2
+
+    def test_algorithm_blocks(self, tmp_path):
+        from paper_intensive_reading.pdf_parse import extract_algorithms
+        import fitz
+
+        pdf = tmp_path / "test.pdf"
+        doc = fitz.open()
+        doc.new_page().insert_text(
+            (50, 50),
+            "Algorithm 1: Training procedure\n"
+            "1: Initialize model\n2: for epoch in range(N):\n3:    train()\n4: end for",
+        )
+        doc.save(str(pdf))
+        doc.close()
+
+        algos = extract_algorithms(pdf)
+        assert len(algos) == 1
+        assert "Training" in algos[0].title
+        assert "Initialize" in algos[0].pseudocode
