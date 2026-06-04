@@ -50,7 +50,7 @@ def render_single_note(
     # 章节
     sections_md = "## 2. 章节概览\n\n"
     for sec in paper.sections:
-        sections_md += f"### {sec.number} {sec.title}\n\n"
+        sections_md += f"## {sec.number}. {sec.title}\n\n"
         for p in sec.paragraphs:
             if p.text.strip():
                 sections_md += f"{p.text[:300]}...\n\n" if len(p.text) > 300 else f"{p.text}\n\n"
