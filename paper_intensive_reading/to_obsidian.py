@@ -2,6 +2,7 @@
 import os
 import json
 import shutil
+import re
 from pathlib import Path
 from .errors import ObsidianError
 
@@ -46,3 +47,61 @@ def prepare_vault_dir(vault: Path, arxiv_id: str, title: str) -> Path:
     figures_dir = paper_dir / "figures"
     figures_dir.mkdir(exist_ok=True)
     return paper_dir
+
+
+def copy_to_vault(
+    paper_dir: Path, md_path: Path, pdf_path: Path | None = None,
+    figure_paths: list[Path] | None = None,
+) -> dict[str, Path]:
+    """复制 MD + PDF + 图片到 vault，返回产物路径字典。"""
+    paper_dir = Path(paper_dir)
+    md_path = Path(md_path)
+    figure_paths = figure_paths or []
+
+    arxiv_id = paper_dir.name.split("-")[0]
+    target_md = paper_dir / f"{arxiv_id}-精读笔记.md"
+    shutil.copy2(md_path, target_md)
+
+    result = {"md": target_md}
+
+    if pdf_path and Path(pdf_path).exists():
+        target_pdf = paper_dir / f"{arxiv_id}.pdf"
+        shutil.copy2(pdf_path, target_pdf)
+        result["pdf"] = target_pdf
+
+    figures_dir = paper_dir / "figures"
+    figures_dir.mkdir(exist_ok=True)
+    copied_figs = []
+    for fig in figure_paths:
+        if not Path(fig).exists():
+            continue
+        target = figures_dir / Path(fig).name
+        shutil.copy2(fig, target)
+        copied_figs.append(target)
+    result["figures"] = copied_figs
+
+    return result
+
+
+def add_wikilinks(md_path: Path, arxiv_id: str, link_names: list[str]) -> None:
+    """把 [[NAME]] 替换为 [[arxiv-id-LLaMA/...|NAME]] 双向链接。"""
+    md_path = Path(md_path)
+    content = md_path.read_text()
+    safe_id = arxiv_id.replace(".", "-")
+    folder_name = None
+    # 找到对应的文件夹名
+    if md_path.parent.exists():
+        for child in md_path.parent.iterdir():
+            if child.is_dir() and child.name.startswith(arxiv_id):
+                folder_name = child.name
+                break
+
+    if not folder_name:
+        return  # 没找到对应文件夹，不处理
+
+    for name in link_names:
+        old = f"[[{name}]]"
+        new = f"[[{folder_name}/{md_path.name}|{name}]]"
+        content = content.replace(old, new)
+
+    md_path.write_text(content)
