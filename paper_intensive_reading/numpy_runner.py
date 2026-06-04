@@ -48,3 +48,93 @@ def parse_code_safety(code: str) -> ast.Module:
     validate_imports(code)
     validate_names(code)
     return tree
+
+
+import subprocess
+import sys
+import tempfile
+import time
+from dataclasses import dataclass
+
+
+@dataclass
+class RunResult:
+    ok: bool
+    stdout: str
+    stderr: str
+    duration_s: float
+    error_subtype: str = ""
+    error_message: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "ok": self.ok, "stdout": self.stdout, "stderr": self.stderr,
+            "duration_s": self.duration_s, "error_subtype": self.error_subtype,
+            "error_message": self.error_message,
+        }
+
+
+_RUNNER_TEMPLATE = """
+import sys
+import resource
+try:
+    resource.setrlimit(resource.RLIMIT_AS, ({memory_mb} * 1024 * 1024, {memory_mb} * 1024 * 1024))
+except (ValueError, OSError):
+    pass
+import numpy as np
+try:
+{code}
+except Exception as e:
+    print(f"__ERROR__{{type(e).__name__}}: {{e}}", file=sys.stderr)
+    sys.exit(1)
+"""
+
+
+def run(
+    code: str, timeout: int = 10, memory_mb: int = 256, max_output: int = 10240,
+) -> RunResult:
+    """在子进程中安全执行 NumPy 代码。"""
+    try:
+        parse_code_safety(code)
+    except NumPyRunError as e:
+        return RunResult(ok=False, stdout="", stderr="", duration_s=0.0,
+                         error_subtype=e.subtype, error_message=str(e.context.get("detail", "")))
+
+    indented = "\n".join("    " + line for line in code.split("\n"))
+    runner_src = _RUNNER_TEMPLATE.format(code=indented, memory_mb=memory_mb)
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+        f.write(runner_src)
+        tmp_path = f.name
+
+    start = time.time()
+    try:
+        proc = subprocess.run(
+            [sys.executable, tmp_path], capture_output=True, text=True,
+            timeout=timeout, env={"PATH": "/usr/bin:/bin", "PYTHONPATH": ""},
+        )
+        duration = time.time() - start
+        stdout = proc.stdout[:max_output]
+        stderr = proc.stderr[:max_output]
+
+        if proc.returncode == 0:
+            return RunResult(ok=True, stdout=stdout, stderr=stderr, duration_s=duration)
+
+        if "SyntaxError" in stderr:
+            subtype = "syntax"
+        elif "MemoryError" in stderr:
+            subtype = "memory"
+        else:
+            subtype = "runtime"
+        return RunResult(ok=False, stdout=stdout, stderr=stderr, duration_s=duration,
+                         error_subtype=subtype, error_message=stderr[:500])
+    except subprocess.TimeoutExpired:
+        duration = time.time() - start
+        return RunResult(ok=False, stdout="", stderr="", duration_s=duration,
+                         error_subtype="timeout", error_message=f"超过 {timeout} 秒")
+    finally:
+        try:
+            from pathlib import Path
+            Path(tmp_path).unlink()
+        except Exception:
+            pass

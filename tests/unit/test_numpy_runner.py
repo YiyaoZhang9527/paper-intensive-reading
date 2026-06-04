@@ -75,3 +75,40 @@ class TestParseCodeSafety:
         with pytest.raises(NumPyRunError) as exc:
             parse_code_safety("import numpy as np\nx = (1,2,3")
         assert exc.value.subtype == "syntax"
+
+
+class TestRunCode:
+    def test_simple_execution(self):
+        from paper_intensive_reading.numpy_runner import run
+        code = "import numpy as np\nx = np.array([1, 2, 3])\nprint(x.sum())"
+        result = run(code)
+        assert result.ok
+        assert "6" in result.stdout
+
+    def test_timeout(self):
+        from paper_intensive_reading.numpy_runner import run
+        code = "import numpy as np\nwhile True: np.zeros((1000, 1000))"
+        result = run(code, timeout=2)
+        assert not result.ok
+        assert result.error_subtype == "timeout"
+
+    def test_runtime_error(self):
+        from paper_intensive_reading.numpy_runner import run
+        code = "import numpy as np\nx = np.array([1, 2])\nprint(x[10])"
+        result = run(code)
+        assert not result.ok
+        assert "IndexError" in result.stderr
+
+    def test_syntax_error_caught(self):
+        from paper_intensive_reading.numpy_runner import run
+        code = "x = (1, 2,"
+        result = run(code)
+        assert not result.ok
+        assert result.error_subtype == "syntax"
+
+    def test_output_truncation(self):
+        from paper_intensive_reading.numpy_runner import run
+        code = "print('x' * 20000)"
+        result = run(code, max_output=1024)
+        assert result.ok
+        assert len(result.stdout) <= 2048
