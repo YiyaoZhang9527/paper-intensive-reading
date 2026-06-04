@@ -122,3 +122,65 @@ print(1 * 2**2)
         assert len(expl.segments) == 6
         assert "mc^2" in expl.segments[0].content
         assert expl.verified is False
+
+
+class TestVerifyWithNumpy:
+    def test_verify_runs_code(self):
+        from paper_intensive_reading.formula_explainer import verify_code_segment
+
+        code = """
+import numpy as np
+Q = np.array([[1, 0, 1, 0]])
+K = np.array([[1, 1, 0, 0]])
+scores = Q @ K.T
+print(f"scores = {scores}")
+"""
+        result = verify_code_segment(code)
+        assert result["ok"]
+        assert "scores" in result["stdout"]
+
+    def test_verify_handles_failure(self):
+        from paper_intensive_reading.formula_explainer import verify_code_segment
+
+        code = "import os\nos.system('echo HACKED')"
+        result = verify_code_segment(code)
+        assert not result["ok"]
+
+    def test_extract_code_from_segment(self):
+        from paper_intensive_reading.formula_explainer import extract_code
+
+        segment_content = """
+**NumPy 代码 + 实际运行**：
+
+```python
+import numpy as np
+x = np.array([1, 2, 3])
+print(x.sum())
+```
+
+实际跑出：
+```
+6
+```
+"""
+        code = extract_code(segment_content)
+        assert "import numpy" in code
+        assert "x.sum()" in code
+
+
+class TestThreeWayVerification:
+    def test_run_three_way_verification(self):
+        from paper_intensive_reading.formula_explainer import (
+            build_empty_explanation, three_way_verify, FormulaSegment
+        )
+
+        expl = build_empty_explanation()
+        expl.segments[5] = FormulaSegment(
+            kind="code",
+            content="```python\nimport numpy as np\nx = np.array([1,2,3])\nprint(x.sum())\n```",
+        )
+
+        result = three_way_verify(expl)
+        assert "actual" in result
+        assert result["actual"]["ok"]
+        assert "6" in result["actual"]["stdout"]

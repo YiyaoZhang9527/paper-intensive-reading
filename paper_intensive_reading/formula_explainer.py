@@ -155,3 +155,41 @@ def explain_formula(
         latex=formula.latex,
         segments=segments,
     )
+
+
+from .numpy_runner import run as run_numpy
+
+
+def extract_code(segment_content: str) -> str:
+    """从段[6]的 markdown 文本里提取 ```python ... ``` 代码块。"""
+    pattern = re.compile(r"```python\s*\n(.*?)\n```", re.DOTALL)
+    m = pattern.search(segment_content)
+    if m:
+        return m.group(1).strip()
+    # fallback: 整段当作代码
+    return segment_content.strip()
+
+
+def verify_code_segment(code: str, **run_kwargs) -> dict:
+    """调用 numpy_runner 跑代码，返回结构化结果。"""
+    result = run_numpy(code, **run_kwargs)
+    return result.to_dict()
+
+
+def three_way_verify(
+    explanation: FormulaExplanation,
+) -> dict:
+    """三对照：手算（段[5]）vs 代码（段[6]）vs 实际跑出。"""
+    if len(explanation.segments) < 6:
+        return {"hand": "", "code": "", "actual": {"ok": False, "stdout": ""}}
+
+    hand = explanation.segments[4].content  # 段[5] 手算
+    code_segment = explanation.segments[5].content
+    code = extract_code(code_segment)
+    actual = verify_code_segment(code)
+
+    return {
+        "hand": hand,
+        "code": code,
+        "actual": actual,
+    }
