@@ -105,3 +105,28 @@ def add_wikilinks(md_path: Path, arxiv_id: str, link_names: list[str]) -> None:
         content = content.replace(old, new)
 
     md_path.write_text(content)
+
+
+def update_index(vault: Path, arxiv_id: str, title: str) -> None:
+    """更新 Papers/_index.md。"""
+    vault = Path(vault)
+    index_path = vault / "Papers" / "_index.md"
+    if not index_path.exists():
+        index_path.write_text("# Papers Index\n\n| arXiv ID | 标题 | 笔记 |\n|---|---|---|\n")
+    content = index_path.read_text()
+    if arxiv_id in content:
+        return  # 已存在，不重复添加
+    line = f"| [{arxiv_id}]({arxiv_id}-{title}/{arxiv_id}-精读笔记.md) | {title} | [[笔记]] |\n"
+    index_path.write_text(content + line)
+
+
+def save(
+    arxiv_id: str, title: str, md_path: Path, pdf_path: Path | None = None,
+    figure_paths: list[Path] | None = None, vault_path: Path | None = None,
+) -> dict[str, Path]:
+    """统一入口：保存到 Obsidian vault。"""
+    vault = vault_path or detect_vault()
+    paper_dir = prepare_vault_dir(vault, arxiv_id, title)
+    result = copy_to_vault(paper_dir, md_path, pdf_path, figure_paths)
+    update_index(vault, arxiv_id, title)
+    return result

@@ -95,3 +95,52 @@ class TestCopyToVault:
         add_wikilinks(md, "2302.13971", ["GLOBAL_NOTE", "ANOTHER_NOTE"])
         content = md.read_text()
         assert "[[2302.13971-LLaMA/2302.13971-精读笔记|GLOBAL_NOTE]]" in content or "[[2302.13971" in content
+
+
+class TestSaveUnified:
+    def test_save_end_to_end(self, tmp_path):
+        from paper_intensive_reading.to_obsidian import save
+
+        # 设置 vault
+        vault = tmp_path / "vault"
+        vault.mkdir()
+
+        # 准备源文件
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        md_file = src_dir / "2302.13971-精读笔记.md"
+        md_file.write_text("# LLaMA\n\nTest")
+        pdf_file = src_dir / "2302.13971.pdf"
+        pdf_file.write_bytes(b"%PDF-1.4\n%fake\n")
+
+        result = save(
+            arxiv_id="2302.13971",
+            title="LLaMA",
+            md_path=md_file,
+            pdf_path=pdf_file,
+            vault_path=vault,
+        )
+
+        assert (vault / "Papers" / "2302.13971-LLaMA" / "2302.13971-精读笔记.md").exists()
+        assert (vault / "Papers" / "2302.13971-LLaMA" / "2302.13971.pdf").exists()
+        # 索引页
+        index = vault / "Papers" / "_index.md"
+        assert index.exists()
+        assert "2302.13971" in index.read_text()
+
+
+class TestIndexPage:
+    def test_update_index_appends(self, tmp_path):
+        from paper_intensive_reading.to_obsidian import update_index
+        vault = tmp_path / "vault"
+        vault.mkdir()
+        paper_dir = vault / "Papers" / "2302.13971-LLaMA"
+        paper_dir.mkdir(parents=True)
+        (paper_dir / "2302.13971-精读笔记.md").write_text("# LLaMA")
+
+        update_index(vault, "2302.13971", "LLaMA")
+        update_index(vault, "2304.08485", "QLoRA")
+
+        index = (vault / "Papers" / "_index.md").read_text()
+        assert "2302.13971" in index
+        assert "2304.08485" in index
