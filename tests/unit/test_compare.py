@@ -46,3 +46,19 @@ class TestAspectExtraction:
         paper.authors = ["Touvron", "Lavril"]
         result = compare_papers([paper])
         assert result["aspects"]["authors"][0] == "Touvron, Lavril"
+
+
+class TestMethodExtraction:
+    def test_extract_keyword(self):
+        from paper_intensive_reading.compare import extract_method_keywords
+        abstract = "We propose a transformer-based model with RoPE positional encoding and RMSNorm."
+        kws = extract_method_keywords(abstract)
+        assert "transformer" in kws
+        assert "RoPE" in kws or "rope" in [k.lower() for k in kws]
+
+    def test_extract_datasets(self):
+        from paper_intensive_reading.compare import extract_dataset_names
+        abstract = "We evaluate on ImageNet, COCO, and GLUE benchmarks."
+        datasets = extract_dataset_names(abstract)
+        assert "ImageNet" in datasets
+        assert "COCO" in datasets

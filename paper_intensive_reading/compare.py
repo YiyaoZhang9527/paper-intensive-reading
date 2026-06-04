@@ -37,3 +37,36 @@ def compare_papers(papers: list[Paper], aspects: list[str] | None = None) -> dic
         "arxiv_ids": [p.arxiv_id for p in papers],
         "aspects": table,
     }
+
+
+import re
+
+METHOD_KEYWORDS = [
+    "transformer", "attention", "self-attention", "cross-attention",
+    "BERT", "GPT", "LLaMA", "RoPE", "RMSNorm", "LayerNorm", "SwiGLU",
+    "LoRA", "RLHF", "fine-tuning", "pre-training", "distillation",
+    "MoE", "sparse", "quantization", "pruning",
+]
+
+DATASET_KEYWORDS = [
+    "ImageNet", "COCO", "GLUE", "SuperGLUE", "MMLU",
+    "HumanEval", "GSM8K", "MATH", "HellaSwag", "ARC",
+    "CommonsenseQA", "WinoGrande", "TruthfulQA",
+    "SQuAD", "Natural Questions", "TriviaQA",
+]
+
+
+def extract_method_keywords(text: str) -> list[str]:
+    found = []
+    for kw in METHOD_KEYWORDS:
+        if re.search(rf"\b{re.escape(kw)}\b", text, re.IGNORECASE):
+            found.append(kw)
+    return found
+
+
+def extract_dataset_names(text: str) -> list[str]:
+    found = []
+    for ds in DATASET_KEYWORDS:
+        if re.search(rf"\b{re.escape(ds)}\b", text, re.IGNORECASE):
+            found.append(ds)
+    return found
