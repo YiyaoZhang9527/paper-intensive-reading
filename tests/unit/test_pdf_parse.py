@@ -191,3 +191,46 @@ class TestExtractFiguresTablesAlgorithms:
         assert len(algos) == 1
         assert "Training" in algos[0].title
         assert "Initialize" in algos[0].pseudocode
+
+
+class TestUnifiedParse:
+    def test_parse_returns_paper(self, tmp_path):
+        from paper_intensive_reading.pdf_parse import parse
+        import fitz
+
+        pdf = tmp_path / "test.pdf"
+        doc = fitz.open()
+        doc.new_page().insert_text(
+            (50, 50),
+            "Test Paper Title\n\nAbstract: We propose something.\n\n"
+            "1 Introduction\n\nIntro text.\n\n"
+            "2 Method\n\nEq. (1): x = y + z.\n\n"
+            "Figure 1: Architecture diagram.",
+        )
+        doc.save(str(pdf))
+        doc.close()
+
+        paper = parse(pdf)
+        assert "Test Paper" in paper.title
+        assert len(paper.sections) >= 2
+        assert paper.pdf_path == str(pdf)
+
+    def test_parse_unsafe_pdf_raises(self, tmp_path):
+        from paper_intensive_reading.pdf_parse import parse
+        content = b"""%PDF-1.4
+1 0 obj <</Type /Catalog /Pages 2 0 R /OpenAction 3 0 R>> endobj
+2 0 obj <</Type /Pages /Kids [] /Count 0>> endobj
+3 0 obj <</S /JavaScript /JS (alert(1))>> endobj
+xref
+0 4
+0000000000 65535 f
+0000000009 00000 n
+0000000058 00000 n
+0000000106 00000 n
+trailer <</Size 4 /Root 1 0 R>> startxref 160 %%EOF
+"""
+        pdf = tmp_path / "evil.pdf"
+        pdf.write_bytes(content)
+
+        with pytest.raises(ParseError):
+            parse(pdf)

@@ -209,3 +209,51 @@ def extract_algorithms(pdf_path: Path) -> list[Algorithm]:
                     language_hint="pseudocode",
                 ))
     return algos
+
+
+def parse(pdf_path: str | Path) -> Paper:
+    """解析 PDF 为 Paper 对象。统一入口。"""
+    pdf_path = Path(pdf_path)
+
+    check_pdf_safety(pdf_path)
+    meta = extract_metadata(pdf_path)
+    sections = extract_sections(pdf_path)
+    formulas = extract_formulas(pdf_path)
+    figures_meta = extract_figure_captions(pdf_path)
+    tables = extract_tables(pdf_path)
+    algorithms = extract_algorithms(pdf_path)
+
+    # 公式归入对应章节
+    for f in formulas:
+        for sec in sections:
+            if any(f.number in p.text for p in sec.paragraphs):
+                sec.formulas.append(f)
+                break
+
+    # Figure 对象
+    figures = [
+        Figure(
+            number=fig["number"], caption=fig["caption"],
+            image_path="", page=fig["page"],
+        )
+        for fig in figures_meta
+    ]
+
+    abstract = meta.get("abstract", "")
+    if not abstract and sections:
+        for sec in sections:
+            if "abstract" in sec.title.lower():
+                abstract = "\n".join(p.text for p in sec.paragraphs)
+                break
+
+    return Paper(
+        arxiv_id="",
+        title=meta.get("title", ""),
+        authors=meta.get("authors", []),
+        affiliations=meta.get("affiliations", []),
+        abstract=abstract,
+        published=meta.get("published") or date.today(),
+        pdf_path=str(pdf_path),
+        sections=sections, figures=figures, tables=tables,
+        algorithms=algorithms, references=[],
+    )
