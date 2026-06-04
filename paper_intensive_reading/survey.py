@@ -1,21 +1,46 @@
 """领域调研：从 arXiv 拉论文列表并按引用 + 时效排序。"""
+import time
 from datetime import date
 from pathlib import Path
 from typing import Any
 
 import arxiv
 
+from .errors import FetchError
 from .types import Paper
 
 
 def search_papers(query: str, max_results: int = 20, months: int = 6) -> list[Paper]:
     """从 arXiv 搜索论文。"""
+    import arxiv as arxiv_mod
+
     search = arxiv.Search(
         query=query, max_results=max_results,
         sort_by=arxiv.SortCriterion.SubmittedDate,
     )
-    client = arxiv.Client(page_size=max_results, delay_seconds=3.0, num_retries=3)
-    results = list(client.results(search))
+
+    # 手动处理 429 限流（arxiv 库的默认 num_retries 偶尔不够）
+    last_err = None
+    for attempt in range(5):
+        try:
+            client = arxiv.Client(
+                page_size=max_results,
+                delay_seconds=3.0 + attempt * 2,  # 3s, 5s, 7s, 9s, 11s
+                num_retries=3,
+            )
+            results = list(client.results(search))
+            break
+        except arxiv_mod.HTTPError as e:
+            last_err = e
+            if getattr(e, "status", None) == 429 and attempt < 4:
+                wait = 15 * (attempt + 1)  # 15s, 30s, 45s, 60s
+                time.sleep(wait)
+                continue
+            raise FetchError("arxiv_timeout", query=query, detail=str(e)) from e
+        except Exception as e:
+            raise FetchError("arxiv_timeout", query=query, detail=str(e)) from e
+    else:
+        raise FetchError("arxiv_timeout", query=query, detail=f"重试 5 次仍 429: {last_err}")
 
     papers: list[Paper] = []
     for r in results:
