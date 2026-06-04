@@ -136,3 +136,26 @@ def render_compare_note(papers: list[Paper]) -> str:
     footer = f"\n---\n*由 paper-intensive-reading skill 自动生成于 {datetime.now(timezone.utc).strftime('%Y-%m-%d')}*\n"
 
     return fm + title + overview + abstracts + footer
+
+
+def render_survey_note(query: str, papers_info: list[dict]) -> str:
+    """渲染调研笔记。"""
+    fm = f"---\nmode: survey\nquery: \"{query}\"\npaper_count: {len(papers_info)}\n---\n\n"
+    title = f"# 调研：{query} (截至 {datetime.now(timezone.utc).strftime('%Y-%m')})\n\n"
+    intro = f"> 来自 arXiv 搜索，Top {len(papers_info)} 论文按引用 + 时效排序\n\n"
+
+    body = ""
+    for i, p in enumerate(papers_info, 1):
+        body += f"## {i}. {p['title']} ({', '.join(p.get('authors', []))}, {p.get('year', 'N/A')})\n\n"
+        body += f"**为什么读**：{p.get('reason', 'N/A')}\n\n"
+        body += f"**核心方法**：{p.get('method', 'N/A')}\n\n"
+        body += f"**引用数**：{p.get('citations', 'N/A')}\n\n"
+        body += f"**arXiv**：[{p['arxiv_id']}]({p.get('url', f'https://arxiv.org/abs/{p['arxiv_id']}')})\n\n"
+
+    reading_path = "## 阅读路径建议\n\n按基础 → 进阶顺序：\n\n"
+    for i, p in enumerate(papers_info, 1):
+        reading_path += f"{i}. {p['title']} - {p.get('reason', '')}\n"
+
+    footer = f"\n---\n*由 paper-intensive-reading skill 自动生成于 {datetime.now(timezone.utc).strftime('%Y-%m-%d')}*\n"
+
+    return fm + title + intro + body + reading_path + footer

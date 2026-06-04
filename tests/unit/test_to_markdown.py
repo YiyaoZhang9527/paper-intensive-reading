@@ -96,3 +96,22 @@ class TestCompareNote:
         assert "GPT-3" in md
         assert "对比" in md or "vs" in md.lower()
         assert "概览对比" in md or "维度" in md
+
+
+class TestSurveyNote:
+    def test_render_survey_note(self):
+        from paper_intensive_reading.to_markdown import render_survey_note
+        papers_info = [
+            {"arxiv_id": "2302.04761", "title": "Toolformer", "authors": ["Schick"],
+             "year": 2023, "reason": "开山工作", "method": "自监督构造工具调用数据",
+             "citations": 1834, "url": "https://arxiv.org/abs/2302.04761"},
+            {"arxiv_id": "2210.03629", "title": "ReAct", "authors": ["Yao"],
+             "year": 2022, "reason": "推理+行动范式", "method": "Reason+Act 循环",
+             "citations": 1521, "url": "https://arxiv.org/abs/2210.03629"},
+        ]
+        md = render_survey_note("LLM Agents", papers_info)
+        assert "LLM Agents" in md
+        assert "Toolformer" in md
+        assert "ReAct" in md
+        assert "阅读路径" in md
+        assert "开山" in md
