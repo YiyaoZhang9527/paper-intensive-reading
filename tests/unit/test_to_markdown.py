@@ -76,3 +76,23 @@ def test_render_includes_front_matter(tmp_path):
     md = render_single_note(paper, formula_explanations=[], user_state={}, status="已读完", tags=["llm"])
     assert "status: 已读完" in md
     assert "tags:" in md
+
+
+class TestCompareNote:
+    def test_render_compare_note(self):
+        from paper_intensive_reading.to_markdown import render_compare_note
+        papers = [
+            Paper(arxiv_id="2302.13971", title="LLaMA", authors=["Touvron"],
+                  affiliations=["Meta AI"], abstract="LLaMA paper",
+                  published=date(2023, 2, 27), pdf_path="/tmp/llama.pdf",
+                  sections=[], figures=[], tables=[], algorithms=[], references=[]),
+            Paper(arxiv_id="2005.14165", title="GPT-3", authors=["Brown"],
+                  affiliations=["OpenAI"], abstract="GPT-3 paper",
+                  published=date(2020, 5, 28), pdf_path="/tmp/gpt3.pdf",
+                  sections=[], figures=[], tables=[], algorithms=[], references=[]),
+        ]
+        md = render_compare_note(papers)
+        assert "LLaMA" in md
+        assert "GPT-3" in md
+        assert "对比" in md or "vs" in md.lower()
+        assert "概览对比" in md or "维度" in md

@@ -111,3 +111,28 @@ def render_single_note(
         fm + tldr + background + sections_md + method + experiments +
         discussion + glossary_md + references + footer
     )
+
+
+def render_compare_note(papers: list[Paper]) -> str:
+    """渲染多论文对比笔记。"""
+    if not papers:
+        return ""
+
+    fm = "---\nmode: compare\npapers: " + str(len(papers)) + "\n---\n\n"
+    title = f"# 对比笔记：{' vs '.join(p.title for p in papers)}\n\n"
+
+    overview = "## 概览对比\n\n| 维度 | " + " | ".join(f"{p.title}" for p in papers) + " |\n"
+    overview += "|------|" + "|".join(["-" * 6] * len(papers)) + "|\n"
+    overview += "| arXiv ID | " + " | ".join(p.arxiv_id for p in papers) + " |\n"
+    overview += "| 时间 | " + " | ".join(p.published.isoformat() for p in papers) + " |\n"
+    overview += "| 作者数 | " + " | ".join(str(len(p.authors)) for p in papers) + " |\n"
+    overview += "| 公式数 | " + " | ".join(str(sum(len(s.formulas) for s in p.sections)) for p in papers) + " |\n"
+    overview += "| 图表数 | " + " | ".join(str(len(p.figures)) for p in papers) + " |\n\n"
+
+    abstracts = "## 摘要对比\n\n"
+    for p in papers:
+        abstracts += f"### {p.title}\n\n{p.abstract}\n\n"
+
+    footer = f"\n---\n*由 paper-intensive-reading skill 自动生成于 {datetime.now(timezone.utc).strftime('%Y-%m-%d')}*\n"
+
+    return fm + title + overview + abstracts + footer
