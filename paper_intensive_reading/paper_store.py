@@ -142,3 +142,38 @@ def save_note_path(db_path: str | Path, arxiv_id: str, note_path: str) -> None:
     with sqlite3.connect(str(db_path)) as conn:
         conn.execute("UPDATE papers SET note_path = ? WHERE arxiv_id = ?", (note_path, arxiv_id))
         conn.commit()
+
+
+def record_formula_attempt(
+    db_path: str | Path, arxiv_id: str, formula_number: str,
+    passed: bool, feedback: str = "",
+) -> int:
+    """记录一次理解确认尝试。返回 attempt 序号。"""
+    with sqlite3.connect(str(db_path)) as conn:
+        cur = conn.execute(
+            "SELECT COUNT(*) FROM formula_attempts WHERE arxiv_id = ? AND formula_number = ?",
+            (arxiv_id, formula_number),
+        )
+        attempt = cur.fetchone()[0] + 1
+        conn.execute(
+            "INSERT INTO formula_attempts (arxiv_id, formula_number, attempt, passed, feedback) VALUES (?, ?, ?, ?, ?)",
+            (arxiv_id, formula_number, attempt, 1 if passed else 0, feedback),
+        )
+        conn.commit()
+    return attempt
+
+
+def get_formula_attempts(
+    db_path: str | Path, arxiv_id: str, formula_number: str,
+) -> list[dict]:
+    with sqlite3.connect(str(db_path)) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT * FROM formula_attempts WHERE arxiv_id = ? AND formula_number = ? ORDER BY id",
+            (arxiv_id, formula_number),
+        ).fetchall()
+    return [
+        {"id": r["id"], "arxiv_id": r["arxiv_id"], "formula_number": r["formula_number"],
+         "attempt": r["attempt"], "passed": bool(r["passed"]), "feedback": r["feedback"]}
+        for r in rows
+    ]

@@ -91,3 +91,18 @@ class TestProgress:
         progress = get_progress(tmp_db, "2302.13971")
         assert progress["sections_done"] == ["1", "2"]
         assert progress["percent"] > 0
+
+
+class TestFormulaAttempts:
+    def test_record_attempt(self, tmp_db):
+        from paper_intensive_reading.paper_store import record_formula_attempt, get_formula_attempts
+        init_db(tmp_db)
+        record_formula_attempt(tmp_db, "2302.13971", "(1)", passed=True, feedback="ok")
+        record_formula_attempt(tmp_db, "2302.13971", "(1)", passed=False, feedback="didn't know softmax")
+        record_formula_attempt(tmp_db, "2302.13971", "(1)", passed=True, feedback="ok after re-explain")
+
+        attempts = get_formula_attempts(tmp_db, "2302.13971", "(1)")
+        assert len(attempts) == 3
+        assert attempts[0]["passed"] is True
+        assert attempts[1]["passed"] is False
+        assert attempts[2]["passed"] is True
