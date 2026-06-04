@@ -5,6 +5,7 @@ from datetime import date
 
 import arxiv
 import requests
+import bibtexparser
 
 from .errors import FetchError
 from .types import Paper
@@ -98,3 +99,29 @@ def fetch_by_local_path(path: str | Path) -> Path:
     if not _is_valid_pdf(p):
         raise FetchError("invalid_pdf", path=str(p), detail="不是有效 PDF")
     return p
+
+
+def extract_arxiv_id_from_bibtex(bibtex: str) -> str:
+    """从 BibTeX 文本中提取 arXiv ID。"""
+    try:
+        db = bibtexparser.loads(bibtex)
+        if not db.entries:
+            raise FetchError("default", detail="BibTeX 无 entries")
+        entry = db.entries[0]
+        for field in ["eprint", "arxiv_id", "arxiv"]:
+            if field in entry:
+                value = entry[field]
+                if "arxiv.org" in value:
+                    return extract_id_from_url(value)
+                return normalize_arxiv_id(value)
+        raise FetchError("default", detail="BibTeX 不含 arXiv ID 字段")
+    except FetchError:
+        raise
+    except Exception as e:
+        raise FetchError("default", detail=f"解析 BibTeX 失败: {e}") from e
+
+
+def fetch_by_bibtex(bibtex: str, dest: Path) -> Path:
+    """从 BibTeX 提取 ID 后下载。"""
+    arxiv_id = extract_arxiv_id_from_bibtex(bibtex)
+    return fetch_by_arxiv_id(arxiv_id, dest=dest)

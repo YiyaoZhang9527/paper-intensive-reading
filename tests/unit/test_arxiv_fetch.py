@@ -153,3 +153,45 @@ class TestFetchByLocalPath:
         with pytest.raises(FetchError) as exc:
             arxiv_fetch.fetch_by_local_path(str(pdf))
         assert exc.value.subtype == "invalid_pdf"
+
+
+class TestFetchByBibtex:
+    def test_parse_bibtex_with_eprint(self):
+        from paper_intensive_reading import arxiv_fetch
+        bibtex = """
+@article{llama2023,
+  title={LLaMA: Open and Efficient Foundation Language Models},
+  author={Touvron and Lavril},
+  year={2023},
+  eprint={2302.13971},
+  archivePrefix={arXiv}
+}
+"""
+        arxiv_id = arxiv_fetch.extract_arxiv_id_from_bibtex(bibtex)
+        assert arxiv_id == "2302.13971"
+
+    def test_parse_bibtex_with_arxiv_url(self):
+        from paper_intensive_reading import arxiv_fetch
+        bibtex = """
+@article{llama, title={LLaMA}, eprint={https://arxiv.org/abs/2302.13971}}
+"""
+        arxiv_id = arxiv_fetch.extract_arxiv_id_from_bibtex(bibtex)
+        assert arxiv_id == "2302.13971"
+
+    def test_parse_bibtex_no_id_raises(self):
+        from paper_intensive_reading import arxiv_fetch
+        bibtex = "@article{foo, title={No arxiv ID}}"
+        with pytest.raises(FetchError):
+            arxiv_fetch.extract_arxiv_id_from_bibtex(bibtex)
+
+    def test_fetch_by_bibtex(self, tmp_workspace, monkeypatch):
+        from paper_intensive_reading import arxiv_fetch
+        def mock_fetch_by_id(arxiv_id, dest):
+            target = dest / f"{arxiv_id}.pdf"
+            target.write_bytes(b"%PDF-1.4\n%fake\n")
+            return target
+        monkeypatch.setattr(arxiv_fetch, "fetch_by_arxiv_id", mock_fetch_by_id)
+
+        bibtex = "@article{x, eprint={2302.13971}}"
+        path = arxiv_fetch.fetch_by_bibtex(bibtex, dest=tmp_workspace)
+        assert path.exists()
