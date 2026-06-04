@@ -58,3 +58,64 @@ class NotionClient:
                     continue
                 raise NotionError("default", detail=str(e)) from e
         return {}
+
+
+def _md_to_blocks(md_text: str) -> list[dict]:
+    """简单把 Markdown 转为 Notion blocks。"""
+    blocks = []
+    for line in md_text.split("\n"):
+        if not line.strip():
+            continue
+        if line.startswith("# "):
+            blocks.append({
+                "object": "block", "type": "heading_1",
+                "heading_1": {"rich_text": [{"type": "text", "text": {"content": line[2:]}}]}
+            })
+        elif line.startswith("## "):
+            blocks.append({
+                "object": "block", "type": "heading_2",
+                "heading_2": {"rich_text": [{"type": "text", "text": {"content": line[3:]}}]}
+            })
+        elif line.startswith("### "):
+            blocks.append({
+                "object": "block", "type": "heading_3",
+                "heading_3": {"rich_text": [{"type": "text", "text": {"content": line[4:]}}]}
+            })
+        elif line.startswith("> "):
+            blocks.append({
+                "object": "block", "type": "quote",
+                "quote": {"rich_text": [{"type": "text", "text": {"content": line[2:]}}]}
+            })
+        elif line.startswith("```"):
+            blocks.append({
+                "object": "block", "type": "code",
+                "code": {"rich_text": [{"type": "text", "text": {"content": "[code block]"}}],
+                         "language": "python"}
+            })
+        else:
+            blocks.append({
+                "object": "block", "type": "paragraph",
+                "paragraph": {"rich_text": [{"type": "text", "text": {"content": line[:2000]}}]}
+            })
+    return blocks[:100]  # Notion 限制：单次最多 100 块
+
+
+def create_paper_page(
+    client: NotionClient, database_id: str,
+    arxiv_id: str, title: str, md_path: Path,
+) -> dict:
+    """在 Notion 数据库里创建论文 page。"""
+    md_path = Path(md_path)
+    md_text = md_path.read_text()
+    blocks = _md_to_blocks(md_text)
+
+    data = {
+        "parent": {"database_id": database_id},
+        "properties": {
+            "Title": {"title": [{"text": {"content": title}}]},
+            "Arxiv ID": {"rich_text": [{"text": {"content": arxiv_id}}]},
+        },
+        "children": blocks,
+    }
+    response = client._request("POST", "/pages", data=data)
+    return {"page_id": response.get("id", ""), "url": response.get("url", "")}

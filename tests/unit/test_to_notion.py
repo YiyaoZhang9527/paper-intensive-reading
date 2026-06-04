@@ -40,3 +40,49 @@ class TestNotionClient:
         monkeypatch.delenv("NOTION_API_KEY", raising=False)
         with pytest.raises(NotionError):
             NotionClient()
+
+
+class TestCreatePage:
+    def test_create_page_with_content(self, monkeypatch, tmp_path):
+        from paper_intensive_reading.to_notion import NotionClient, create_paper_page
+
+        monkeypatch.setenv("NOTION_API_KEY", "secret_xyz")
+        monkeypatch.setenv("NOTION_DATABASE_ID", "db-123")
+
+        md_file = tmp_path / "note.md"
+        md_file.write_text("# LLaMA\n\nTest content")
+
+        # Mock 客户端
+        class MockClient(NotionClient):
+            def _request(self, method, path, data=None, max_retries=3):
+                if method == "POST" and "/pages" in path:
+                    return {"id": "page-abc123", "url": "https://notion.so/page-abc123"}
+                return {}
+
+        client = MockClient("test_key")
+        result = create_paper_page(
+            client=client,
+            database_id="db-123",
+            arxiv_id="2302.13971",
+            title="LLaMA",
+            md_path=md_file,
+        )
+
+        assert result["page_id"] == "page-abc123"
+        assert "notion.so" in result["url"]
+
+    def test_page_creation_error(self, monkeypatch, tmp_path):
+        from paper_intensive_reading.to_notion import NotionClient, create_paper_page
+        from paper_intensive_reading.errors import NotionError
+
+        monkeypatch.setenv("NOTION_API_KEY", "secret_xyz")
+        md_file = tmp_path / "note.md"
+        md_file.write_text("x")
+
+        class FailingClient(NotionClient):
+            def _request(self, method, path, data=None, max_retries=3):
+                raise NotionError("default", detail="server down")
+
+        client = FailingClient("test_key")
+        with pytest.raises(NotionError):
+            create_paper_page(client, "db-123", "2302.13971", "LLaMA", md_file)
