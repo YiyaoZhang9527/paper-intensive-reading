@@ -40,3 +40,40 @@ def render_page_region(pdf_path: Path, page_num: int, out_path: Path, dpi: int =
         pix = page.get_pixmap(matrix=mat)
         pix.save(str(out_path))
     return out_path
+
+
+def attach_images_to_figures(
+    pdf_path: Path, figures: list, out_dir: Path,
+) -> list[str]:
+    """提取所有图，把路径挂到 figure.image_path。"""
+    pdf_path = Path(pdf_path)
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    extra_dir = out_dir / "extra"
+    extra_dir.mkdir(parents=True, exist_ok=True)
+
+    all_extracted = extract_embedded_images(pdf_path, out_dir)
+    by_page: dict[int, list[str]] = {}
+    for p in all_extracted:
+        fname = Path(p).stem
+        try:
+            page_num = int(fname.split("-")[0].replace("page", ""))
+        except (ValueError, IndexError):
+            continue
+        by_page.setdefault(page_num, []).append(p)
+
+    used: set[str] = set()
+    for fig in figures:
+        page_imgs = by_page.get(fig.page + 1, [])
+        for img_path in page_imgs:
+            if img_path in used:
+                continue
+            fig.image_path = img_path
+            used.add(img_path)
+            break
+        if not fig.image_path and page_imgs:
+            fig.image_path = page_imgs[0]
+            used.add(page_imgs[0])
+
+    extra = [p for p in all_extracted if p not in used]
+    return extra
