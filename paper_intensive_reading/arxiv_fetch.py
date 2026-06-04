@@ -125,3 +125,66 @@ def fetch_by_bibtex(bibtex: str, dest: Path) -> Path:
     """从 BibTeX 提取 ID 后下载。"""
     arxiv_id = extract_arxiv_id_from_bibtex(bibtex)
     return fetch_by_arxiv_id(arxiv_id, dest=dest)
+
+
+def search_arxiv(query: str, max_results: int = 10) -> list[Paper]:
+    """根据标题关键词搜索 arXiv。"""
+    try:
+        search = arxiv.Search(query=query, max_results=max_results,
+                              sort_by=arxiv.SortCriterion.Relevance)
+        client = arxiv.Client(page_size=max_results, delay_seconds=3.0, num_retries=3)
+        results = list(client.results(search))
+    except Exception as e:
+        raise FetchError("arxiv_timeout", query=query, detail=str(e)) from e
+
+    if not results:
+        raise FetchError("arxiv_404", query=query, detail="搜索无结果")
+
+    papers = []
+    for r in results:
+        arxiv_id = r.entry_id.split("/")[-1]
+        arxiv_id = normalize_arxiv_id(arxiv_id)
+        published = r.published
+        if published is None:
+            published_date = date.today()
+        elif hasattr(published, "date"):
+            published_date = published.date()
+        else:
+            published_date = published
+        papers.append(Paper(
+            arxiv_id=arxiv_id, title=r.title,
+            authors=[a.name for a in r.authors], affiliations=[],
+            abstract=r.summary,
+            published=published_date,
+            pdf_path="", sections=[], figures=[], tables=[],
+            algorithms=[], references=[],
+        ))
+    return papers
+
+
+def fetch(source: str, dest: Path) -> Path:
+    """统一入口：自动识别 arXiv ID / URL / 本地路径 / BibTeX。"""
+    s = source.strip()
+
+    if s.startswith("@") or "eprint" in s:
+        return fetch_by_bibtex(s, dest=dest)
+
+    if s.startswith(("http://", "https://")):
+        if "arxiv.org" in s:
+            return fetch_by_url(s, dest=dest)
+        raise FetchError("arxiv_404", url=s, detail="仅支持 arXiv URL")
+
+    if s.startswith(("/", "./", "~")):
+        return fetch_by_local_path(s)
+
+    if "arxiv.org" in s:
+        return fetch_by_url(s, dest=dest)
+
+    if ARXIV_ID_PATTERN.match(s):
+        return fetch_by_arxiv_id(s, dest=dest)
+
+    # 标题搜索
+    papers = search_arxiv(s, max_results=5)
+    if not papers:
+        raise FetchError("arxiv_404", query=s)
+    return fetch_by_arxiv_id(papers[0].arxiv_id, dest=dest)

@@ -195,3 +195,82 @@ class TestFetchByBibtex:
         bibtex = "@article{x, eprint={2302.13971}}"
         path = arxiv_fetch.fetch_by_bibtex(bibtex, dest=tmp_workspace)
         assert path.exists()
+
+
+class TestFetchByTitle:
+    def test_search_returns_results(self, monkeypatch):
+        from paper_intensive_reading import arxiv_fetch
+
+        class MockResult:
+            entry_id = "http://arxiv.org/abs/2302.13971v1"
+            title = "LLaMA: Open and Efficient Foundation Language Models"
+            pdf_url = "http://arxiv.org/pdf/2302.13971v1"
+            authors = [type("A", (), {"name": "Touvron"})()]
+            summary = "We introduce LLaMA."
+            published = date(2023, 2, 27)
+
+        class MockClient:
+            def __init__(self, *args, **kwargs): pass
+            def results(self, search): return iter([MockResult()])
+
+        monkeypatch.setattr(arxiv_fetch.arxiv, "Client", MockClient)
+
+        papers = arxiv_fetch.search_arxiv("LLaMA", max_results=5)
+        assert len(papers) == 1
+        assert "LLaMA" in papers[0].title
+
+    def test_no_results_raises(self, monkeypatch):
+        from paper_intensive_reading import arxiv_fetch
+
+        class MockClient:
+            def __init__(self, *args, **kwargs): pass
+            def results(self, search): return iter([])
+
+        monkeypatch.setattr(arxiv_fetch.arxiv, "Client", MockClient)
+
+        with pytest.raises(FetchError) as exc:
+            arxiv_fetch.search_arxiv("nonexistent paper xyz", max_results=5)
+        assert exc.value.subtype == "arxiv_404"
+
+
+class TestUnifiedFetch:
+    def test_unified_fetch_with_arxiv_id(self, tmp_workspace, monkeypatch):
+        from paper_intensive_reading import arxiv_fetch
+        def mock_fetch_by_id(arxiv_id, dest):
+            target = dest / f"{arxiv_id}.pdf"
+            target.write_bytes(b"%PDF-1.4\n%fake\n")
+            return target
+        monkeypatch.setattr(arxiv_fetch, "fetch_by_arxiv_id", mock_fetch_by_id)
+
+        path = arxiv_fetch.fetch("2302.13971", dest=tmp_workspace)
+        assert path.exists()
+
+    def test_unified_fetch_with_url(self, tmp_workspace, monkeypatch):
+        from paper_intensive_reading import arxiv_fetch
+        def mock_fetch_by_id(arxiv_id, dest):
+            target = dest / f"{arxiv_id}.pdf"
+            target.write_bytes(b"%PDF-1.4\n%fake\n")
+            return target
+        monkeypatch.setattr(arxiv_fetch, "fetch_by_arxiv_id", mock_fetch_by_id)
+
+        path = arxiv_fetch.fetch("https://arxiv.org/abs/2302.13971", dest=tmp_workspace)
+        assert path.exists()
+
+    def test_unified_fetch_with_local_path(self, tmp_workspace):
+        from paper_intensive_reading import arxiv_fetch
+        pdf = tmp_workspace / "test.pdf"
+        pdf.write_bytes(b"%PDF-1.4\n%fake\n")
+        path = arxiv_fetch.fetch(str(pdf), dest=tmp_workspace)
+        assert path == pdf
+
+    def test_unified_fetch_with_garbage_raises(self, tmp_workspace, monkeypatch):
+        from paper_intensive_reading import arxiv_fetch
+
+        class MockClient:
+            def __init__(self, *args, **kwargs): pass
+            def results(self, search): return iter([])
+
+        monkeypatch.setattr(arxiv_fetch.arxiv, "Client", MockClient)
+
+        with pytest.raises(FetchError):
+            arxiv_fetch.fetch("totally garbage input that won't match", dest=tmp_workspace)
