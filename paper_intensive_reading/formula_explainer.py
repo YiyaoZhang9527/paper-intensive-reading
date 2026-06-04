@@ -92,3 +92,66 @@ FORMULA_PROMPT_TEMPLATE = """你是 AI 论文公式讲解助手。用户数学�
 
 请按 6 段输出，每段用 "## 段 N" 开头。
 """
+import re
+
+
+def call_llm(prompt: str, **kwargs) -> str:
+    """调用 LLM 的占位函数。实际实现由调用方注入（便于测试）。"""
+    raise NotImplementedError("call_llm must be injected by caller")
+
+
+def parse_llm_response(response: str) -> list[FormulaSegment]:
+    """解析 LLM 返回的 6 段输出。"""
+    # 用 "## 段 N" 切分
+    pattern = re.compile(r"##\s*段\s*(\d+)\s*\n", re.MULTILINE)
+    matches = list(pattern.finditer(response))
+    if len(matches) < 6:
+        # 失败：返回空段
+        return [FormulaSegment(kind=k, content="") for k in SEGMENT_KINDS]
+
+    segments = []
+    for i in range(6):
+        start = matches[i].end()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(response)
+        content = response[start:end].strip()
+        segments.append(FormulaSegment(kind=SEGMENT_KINDS[i], content=content))
+    return segments
+
+
+def explain_formula(
+    formula: Formula,
+    arxiv_id: str,
+    llm_fn=None,
+) -> FormulaExplanation:
+    """调用 LLM 生成 6 段讲解。"""
+    from .errors import LLMError
+
+    if llm_fn is None:
+        llm_fn = call_llm
+
+    prompt = FORMULA_PROMPT_TEMPLATE.format(
+        depth_pref="elementary",
+        formula_number=formula.number,
+        latex=formula.latex,
+        context_before=formula.context_before[:200],
+        context_after=formula.context_after[:200],
+    )
+
+    try:
+        response = llm_fn(prompt)
+    except Exception as e:
+        raise LLMError("default", detail=str(e)) from e
+
+    if not response or len(response) < 50:
+        raise LLMError("bad_format", detail="LLM 返回过短")
+
+    segments = parse_llm_response(response)
+    if not any(s.content for s in segments):
+        raise LLMError("bad_format", detail="无法解析任何段")
+
+    return FormulaExplanation(
+        arxiv_id=arxiv_id,
+        formula_number=formula.number,
+        latex=formula.latex,
+        segments=segments,
+    )
