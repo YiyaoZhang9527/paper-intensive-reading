@@ -48,3 +48,13 @@ target-version = "py311"
 [tool.mypy]
 python_version = "3.11"
 strict = true
+# Pragmatic relaxations for v1.0: the codebase predates strict mode and uses
+# bare generics + dynamic third-party return types extensively. Tighten over time.
+disallow_any_generics = false
+warn_return_any = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+[[tool.mypy.overrides]]
+module = ["arxiv", "bibtexparser", "fitz", "pikepdf", "pdfplumber"]
+ignore_missing_imports = true

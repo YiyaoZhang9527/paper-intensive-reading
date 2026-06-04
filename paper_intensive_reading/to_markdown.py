@@ -28,7 +28,7 @@ def render_single_note(
         f"tags: {tags}",
         f"公式数: {sum(len(s.formulas) for s in paper.sections)}",
         f"图表数: {len(paper.figures)}",
-        f"read_time: 30min",
+        "read_time: 30min",
         f"finished_at: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}",
         "---",
         "",
@@ -150,7 +150,9 @@ def render_survey_note(query: str, papers_info: list[dict]) -> str:
         body += f"**为什么读**：{p.get('reason', 'N/A')}\n\n"
         body += f"**核心方法**：{p.get('method', 'N/A')}\n\n"
         body += f"**引用数**：{p.get('citations', 'N/A')}\n\n"
-        body += f"**arXiv**：[{p['arxiv_id']}]({p.get('url', f'https://arxiv.org/abs/{p['arxiv_id']}')})\n\n"
+        default_url = f"https://arxiv.org/abs/{p['arxiv_id']}"
+        url = p.get('url', default_url)
+        body += f"**arXiv**：[{p['arxiv_id']}]({url})\n\n"
 
     reading_path = "## 阅读路径建议\n\n按基础 → 进阶顺序：\n\n"
     for i, p in enumerate(papers_info, 1):

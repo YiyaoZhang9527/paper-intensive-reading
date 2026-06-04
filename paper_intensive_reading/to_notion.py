@@ -135,7 +135,7 @@ def upload_pdf_attachment(client: NotionClient, pdf_path: Path, page_id: str) ->
     # 这里简化：假设 Notion 直接接受 url/file_data
     # 实际实现可能要分两步
     with open(pdf_path, "rb") as f:
-        file_data = f.read()
+        _ = f.read()  # placeholder: real impl would POST file_data to upload slot
 
     # 简化：只调用 file_uploads API（具体实现取决于 Notion API 版本）
     data = {

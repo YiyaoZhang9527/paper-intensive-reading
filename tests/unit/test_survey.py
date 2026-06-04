@@ -1,4 +1,3 @@
-import pytest
 from datetime import date
 from paper_intensive_reading.survey import (
     search_papers, rank_papers, build_survey_result
@@ -57,6 +56,7 @@ class TestRankPapers:
         ]
         ranked = rank_papers(papers, recency_weight=0.5)
         # recency + citations 综合，新论文可能超过旧论文
+        assert isinstance(ranked, list)
 
 
 class TestBuildSurvey:

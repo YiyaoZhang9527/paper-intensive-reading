@@ -1,5 +1,3 @@
-import pytest
-from pathlib import Path
 from paper_intensive_reading.image_gen import (
     generate, generate_ascii_fallback, PROVIDERS
 )
@@ -44,7 +42,7 @@ class TestGenerate:
         monkeypatch.setattr(image_gen, "PROVIDERS", [fake_provider_1, fake_provider_2])
 
         out = tmp_path / "out.png"
-        result = generate("test", out_path=out)
+        generate("test", out_path=out)
         assert called == ["p1", "p2"]
         assert "FAKE_IMAGE" in out.read_text()
 

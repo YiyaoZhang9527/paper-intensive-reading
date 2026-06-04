@@ -1,7 +1,6 @@
-import pytest
 from datetime import date
 from paper_intensive_reading.to_markdown import render_single_note
-from paper_intensive_reading.types import Paper, Section, Paragraph, Formula, Figure
+from paper_intensive_reading.types import Paper, Section, Paragraph, Figure
 
 
 def test_render_basic_note(tmp_path):
@@ -34,7 +33,7 @@ def test_render_basic_note(tmp_path):
 
 def test_render_with_formula_explanations(tmp_path):
     from paper_intensive_reading.formula_explainer import (
-        FormulaExplanation, FormulaSegment, build_empty_explanation
+        FormulaSegment, build_empty_explanation
     )
     paper = Paper(
         arxiv_id="2302.13971", title="LLaMA", authors=["Touvron"],

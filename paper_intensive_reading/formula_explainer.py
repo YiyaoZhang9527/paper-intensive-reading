@@ -92,7 +92,7 @@ FORMULA_PROMPT_TEMPLATE = """你是 AI 论文公式讲解助手。用户数学�
 
 请按 6 段输出，每段用 "## 段 N" 开头。
 """
-import re
+import re  # noqa: E402
 
 
 def call_llm(prompt: str, **kwargs) -> str:
@@ -157,7 +157,7 @@ def explain_formula(
     )
 
 
-from .numpy_runner import run as run_numpy
+from .numpy_runner import run as run_numpy  # noqa: E402
 
 
 def extract_code(segment_content: str) -> str:

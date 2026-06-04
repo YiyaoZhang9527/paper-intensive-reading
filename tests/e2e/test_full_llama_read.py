@@ -3,17 +3,13 @@
 注意：使用 mock LLM 避免实际 API 调用。
 真正的 E2E（实际下载 LLaMA PDF）作为可选 manual test。
 """
-import os
 import pytest
-from pathlib import Path
 from datetime import date
-from unittest.mock import patch
 
-from paper_intensive_reading.types import Paper
 from paper_intensive_reading.pdf_parse import parse
 from paper_intensive_reading.to_markdown import render_single_note
 from paper_intensive_reading.formula_explainer import (
-    FormulaExplanation, FormulaSegment, build_empty_explanation
+    FormulaSegment, build_empty_explanation
 )
 from paper_intensive_reading.paper_store import (
     init_db, add_paper, get_paper, update_status

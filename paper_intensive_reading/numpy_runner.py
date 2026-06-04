@@ -50,11 +50,11 @@ def parse_code_safety(code: str) -> ast.Module:
     return tree
 
 
-import subprocess
-import sys
-import tempfile
-import time
-from dataclasses import dataclass
+import subprocess  # noqa: E402
+import sys  # noqa: E402
+import tempfile  # noqa: E402
+import time  # noqa: E402
+from dataclasses import dataclass  # noqa: E402
 
 
 @dataclass
@@ -78,14 +78,14 @@ _RUNNER_TEMPLATE = """
 import sys
 import resource
 try:
-    resource.setrlimit(resource.RLIMIT_AS, ({memory_mb} * 1024 * 1024, {memory_mb} * 1024 * 1024))
+    resource.setrlimit(resource.RLIMIT_AS, (__MEMORY_MB__ * 1024 * 1024, __MEMORY_MB__ * 1024 * 1024))
 except (ValueError, OSError):
     pass
 import numpy as np
 try:
-{code}
+__CODE__
 except Exception as e:
-    print(f"__ERROR__{{type(e).__name__}}: {{e}}", file=sys.stderr)
+    print(f"__ERROR__{type(e).__name__}: {e}", file=sys.stderr)
     sys.exit(1)
 """
 
@@ -101,7 +101,11 @@ def run(
                          error_subtype=e.subtype, error_message=str(e.context.get("detail", "")))
 
     indented = "\n".join("    " + line for line in code.split("\n"))
-    runner_src = _RUNNER_TEMPLATE.format(code=indented, memory_mb=memory_mb)
+    runner_src = (
+        _RUNNER_TEMPLATE
+        .replace("__CODE__", indented)
+        .replace("__MEMORY_MB__", str(memory_mb))
+    )
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(runner_src)

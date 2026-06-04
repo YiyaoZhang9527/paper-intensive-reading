@@ -1,4 +1,3 @@
-import pytest
 from pathlib import Path
 from paper_intensive_reading.extract_figures import (
     extract_embedded_images, render_page_region

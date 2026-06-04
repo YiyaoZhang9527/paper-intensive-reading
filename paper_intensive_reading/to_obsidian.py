@@ -2,7 +2,6 @@
 import os
 import json
 import shutil
-import re
 from pathlib import Path
 from .errors import ObsidianError
 
@@ -52,7 +51,7 @@ def prepare_vault_dir(vault: Path, arxiv_id: str, title: str) -> Path:
 def copy_to_vault(
     paper_dir: Path, md_path: Path, pdf_path: Path | None = None,
     figure_paths: list[Path] | None = None,
-) -> dict[str, Path]:
+) -> dict[str, Path | list[Path]]:
     """复制 MD + PDF + 图片到 vault，返回产物路径字典。"""
     paper_dir = Path(paper_dir)
     md_path = Path(md_path)
@@ -62,7 +61,7 @@ def copy_to_vault(
     target_md = paper_dir / f"{arxiv_id}-精读笔记.md"
     shutil.copy2(md_path, target_md)
 
-    result = {"md": target_md}
+    result: dict[str, Path | list[Path]] = {"md": target_md}
 
     if pdf_path and Path(pdf_path).exists():
         target_pdf = paper_dir / f"{arxiv_id}.pdf"
@@ -71,7 +70,7 @@ def copy_to_vault(
 
     figures_dir = paper_dir / "figures"
     figures_dir.mkdir(exist_ok=True)
-    copied_figs = []
+    copied_figs: list[Path] = []
     for fig in figure_paths:
         if not Path(fig).exists():
             continue
@@ -87,7 +86,6 @@ def add_wikilinks(md_path: Path, arxiv_id: str, link_names: list[str]) -> None:
     """把 [[NAME]] 替换为 [[arxiv-id-LLaMA/...|NAME]] 双向链接。"""
     md_path = Path(md_path)
     content = md_path.read_text()
-    safe_id = arxiv_id.replace(".", "-")
     folder_name = None
     # 找到对应的文件夹名
     if md_path.parent.exists():
@@ -123,7 +121,7 @@ def update_index(vault: Path, arxiv_id: str, title: str) -> None:
 def save(
     arxiv_id: str, title: str, md_path: Path, pdf_path: Path | None = None,
     figure_paths: list[Path] | None = None, vault_path: Path | None = None,
-) -> dict[str, Path]:
+) -> dict[str, Path | list[Path]]:
     """统一入口：保存到 Obsidian vault。"""
     vault = vault_path or detect_vault()
     paper_dir = prepare_vault_dir(vault, arxiv_id, title)

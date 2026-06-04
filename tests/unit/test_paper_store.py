@@ -1,4 +1,3 @@
-import pytest
 from datetime import date
 from paper_intensive_reading.paper_store import (
     init_db, add_paper, get_paper, list_papers,

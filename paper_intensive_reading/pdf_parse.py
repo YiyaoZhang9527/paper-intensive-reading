@@ -7,7 +7,7 @@ import fitz  # PyMuPDF
 import pikepdf
 
 from .errors import ParseError
-from .types import Paper, Section, Paragraph, Formula, Figure, Table, Algorithm, Reference
+from .types import Paper, Section, Paragraph, Formula, Figure, Table, Algorithm
 
 
 DANGEROUS_KEYS = {"/JS", "/JavaScript", "/AA", "/OpenAction", "/Launch", "/URI", "/SubmitForm"}
@@ -63,7 +63,7 @@ def extract_metadata(pdf_path: Path) -> dict:
         metadata["authors"] = [a.strip() for a in (info.get("author") or "").split(",") if a.strip()]
         if not metadata["title"] and doc.page_count > 0:
             first_text = doc[0].get_text()
-            lines = [l.strip() for l in first_text.split("\n") if l.strip()]
+            lines = [ln.strip() for ln in first_text.split("\n") if ln.strip()]
             if lines:
                 metadata["title"] = lines[0][:200]
     return metadata

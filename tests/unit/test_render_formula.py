@@ -1,6 +1,5 @@
 import pytest
-from pathlib import Path
-from paper_intensive_reading.render_formula import render, render_to_png
+from paper_intensive_reading.render_formula import render
 from paper_intensive_reading.errors import ParseError
 
 

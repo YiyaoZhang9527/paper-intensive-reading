@@ -1,4 +1,6 @@
 """多论文并排对比。"""
+from typing import Any
+
 from .types import Paper
 
 
@@ -7,10 +9,10 @@ DEFAULT_ASPECTS = [
 ]
 
 
-def build_aspect_table(papers: list[Paper], aspects: list[str] | None = None) -> dict:
+def build_aspect_table(papers: list[Paper], aspects: list[str] | None = None) -> dict[str, list[Any]]:
     """构建 {aspect: [paper1_value, paper2_value, ...]}。"""
     aspects = aspects or DEFAULT_ASPECTS
-    table: dict[str, list] = {"title": [p.title for p in papers]}
+    table: dict[str, list[Any]] = {"title": [p.title for p in papers]}
     for a in aspects:
         table[a] = []
 
@@ -25,7 +27,7 @@ def build_aspect_table(papers: list[Paper], aspects: list[str] | None = None) ->
     return table
 
 
-def compare_papers(papers: list[Paper], aspects: list[str] | None = None) -> dict:
+def compare_papers(papers: list[Paper], aspects: list[str] | None = None) -> dict[str, Any]:
     """多论文对比的统一入口。"""
     if not papers:
         raise ValueError("至少需要 1 篇论文")
@@ -39,7 +41,7 @@ def compare_papers(papers: list[Paper], aspects: list[str] | None = None) -> dic
     }
 
 
-import re
+import re  # noqa: E402
 
 METHOD_KEYWORDS = [
     "transformer", "attention", "self-attention", "cross-attention",
@@ -57,7 +59,7 @@ DATASET_KEYWORDS = [
 
 
 def extract_method_keywords(text: str) -> list[str]:
-    found = []
+    found: list[str] = []
     for kw in METHOD_KEYWORDS:
         if re.search(rf"\b{re.escape(kw)}\b", text, re.IGNORECASE):
             found.append(kw)
@@ -65,7 +67,7 @@ def extract_method_keywords(text: str) -> list[str]:
 
 
 def extract_dataset_names(text: str) -> list[str]:
-    found = []
+    found: list[str] = []
     for ds in DATASET_KEYWORDS:
         if re.search(rf"\b{re.escape(ds)}\b", text, re.IGNORECASE):
             found.append(ds)

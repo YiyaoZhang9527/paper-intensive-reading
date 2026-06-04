@@ -1,4 +1,3 @@
-import pytest
 from paper_intensive_reading.errors import (
     PaperReadError, FetchError, ParseError, NumPyRunError,
     ObsidianError, NotionError, LLMError, get_user_message,

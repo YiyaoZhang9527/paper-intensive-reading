@@ -1,6 +1,5 @@
-import pytest
 from paper_intensive_reading.formula_explainer import (
-    FormulaExplanation, FormulaSegment, ExplanationContext,
+    FormulaSegment, ExplanationContext,
     build_empty_explanation, FORMULA_PROMPT_TEMPLATE
 )
 from paper_intensive_reading.types import Formula
@@ -94,7 +93,7 @@ x = 1
 class TestCallLlm:
     def test_call_llm_with_mock(self, monkeypatch):
         from paper_intensive_reading import formula_explainer
-        from paper_intensive_reading.formula_explainer import explain_formula, FormulaSegment
+        from paper_intensive_reading.formula_explainer import explain_formula
 
         def mock_llm(prompt, **kwargs):
             return """## 段 1

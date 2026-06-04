@@ -1,4 +1,3 @@
-import pytest
 from paper_intensive_reading.bilingual import (
     translate, build_glossary, KNOWN_TERMS
 )

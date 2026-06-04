@@ -2,7 +2,6 @@
 import time
 import fitz
 import pytest
-from pathlib import Path
 from paper_intensive_reading.pdf_parse import parse
 from paper_intensive_reading.extract_figures import extract_embedded_images
 from paper_intensive_reading.render_formula import render

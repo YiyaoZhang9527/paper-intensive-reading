@@ -4,7 +4,6 @@ from pathlib import Path
 from datetime import date
 
 import arxiv
-import requests
 import bibtexparser
 
 from .errors import FetchError

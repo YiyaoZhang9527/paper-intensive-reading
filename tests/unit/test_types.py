@@ -1,7 +1,6 @@
-import pytest
 from datetime import date
 from paper_intensive_reading.types import (
-    Paper, Section, Formula, Figure, Table, Algorithm, Paragraph
+    Paper, Formula, Figure
 )
 
 

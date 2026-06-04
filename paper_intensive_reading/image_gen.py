@@ -80,12 +80,10 @@ def generate(prompt: str, out_path: Path | None = None) -> str:
     """
     out_path = Path(out_path) if out_path else Path("/tmp/img.txt")
 
-    last_error = None
     for provider in PROVIDERS:
         try:
             return provider(prompt, out_path)
-        except Exception as e:
-            last_error = e
+        except Exception:
             continue
 
     # 全部 provider 失败或没有 provider，ASCII 兜底

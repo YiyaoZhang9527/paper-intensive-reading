@@ -9,12 +9,28 @@ class PaperReadError(Exception):
         super().__init__(f"{type(self).__name__}[{subtype}]")
 
 
-class FetchError(PaperReadError): pass
-class ParseError(PaperReadError): pass
-class NumPyRunError(PaperReadError): pass
-class ObsidianError(PaperReadError): pass
-class NotionError(PaperReadError): pass
-class LLMError(PaperReadError): pass
+class FetchError(PaperReadError):
+    pass
+
+
+class ParseError(PaperReadError):
+    pass
+
+
+class NumPyRunError(PaperReadError):
+    pass
+
+
+class ObsidianError(PaperReadError):
+    pass
+
+
+class NotionError(PaperReadError):
+    pass
+
+
+class LLMError(PaperReadError):
+    pass
 
 
 _MESSAGES: dict[type, dict[str, str]] = {

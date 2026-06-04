@@ -1,8 +1,6 @@
-import os
 import pytest
-from pathlib import Path
 from paper_intensive_reading.to_obsidian import (
-    detect_vault, prepare_vault_dir, OBSIDIAN_CONFIG_KEY
+    detect_vault, prepare_vault_dir
 )
 from paper_intensive_reading.errors import ObsidianError
 
@@ -113,7 +111,7 @@ class TestSaveUnified:
         pdf_file = src_dir / "2302.13971.pdf"
         pdf_file.write_bytes(b"%PDF-1.4\n%fake\n")
 
-        result = save(
+        save(
             arxiv_id="2302.13971",
             title="LLaMA",
             md_path=md_file,

@@ -1,6 +1,4 @@
-import os
 import pytest
-from pathlib import Path
 from paper_intensive_reading.to_notion import (
     get_api_key, get_database_id, NotionClient
 )

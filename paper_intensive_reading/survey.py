@@ -1,6 +1,10 @@
 """领域调研：从 arXiv 拉论文列表并按引用 + 时效排序。"""
-import arxiv
 from datetime import date
+from pathlib import Path
+from typing import Any
+
+import arxiv
+
 from .types import Paper
 
 
@@ -13,7 +17,7 @@ def search_papers(query: str, max_results: int = 20, months: int = 6) -> list[Pa
     client = arxiv.Client(page_size=max_results, delay_seconds=3.0, num_retries=3)
     results = list(client.results(search))
 
-    papers = []
+    papers: list[Paper] = []
     for r in results:
         arxiv_id = r.entry_id.split("/")[-1]
         arxiv_id = arxiv_id.lower().rstrip("v0123456789") or arxiv_id
@@ -35,12 +39,12 @@ def search_papers(query: str, max_results: int = 20, months: int = 6) -> list[Pa
     return papers
 
 
-def rank_papers(papers: list[Paper], recency_weight: float = 0.3) -> list[dict]:
+def rank_papers(papers: list[Paper], recency_weight: float = 0.3) -> list[dict[str, Any]]:
     """按引用 + 时效综合排序。返回 [{arxiv_id, title, score, ...}]。"""
     # 简化：没有真实 citation 数据，假设 citations=100 的 paper 有 100 引用
     # 实际：需要从 Semantic Scholar API 拉
     today_year = date.today().year
-    scored = []
+    scored: list[dict[str, Any]] = []
     for p in papers:
         # 时效分：年差越小越高
         recency = max(0, 1 - (today_year - p.published.year) * 0.2)
@@ -58,7 +62,7 @@ def rank_papers(papers: list[Paper], recency_weight: float = 0.3) -> list[dict]:
     return scored
 
 
-def build_survey_result(query: str, papers: list[Paper]) -> dict:
+def build_survey_result(query: str, papers: list[Paper]) -> dict[str, Any]:
     """构造调研结果。"""
     ranked = rank_papers(papers)
     return {
@@ -70,11 +74,11 @@ def build_survey_result(query: str, papers: list[Paper]) -> dict:
 
 
 def add_survey_results_to_list(
-    result: dict, db_path, arxiv_ids: list[str] | None = None,
+    result: dict[str, Any], db_path: str | Path, arxiv_ids: list[str] | None = None,
 ) -> list[str]:
     """把调研结果里的论文添加到阅读清单。arxiv_ids=None 表示全部添加。"""
     from .paper_store import add_paper
-    added = []
+    added: list[str] = []
     for p in result.get("papers", []):
         if arxiv_ids and p["arxiv_id"] not in arxiv_ids:
             continue
