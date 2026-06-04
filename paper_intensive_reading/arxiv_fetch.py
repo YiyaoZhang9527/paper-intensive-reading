@@ -39,3 +39,44 @@ def extract_id_from_url(url: str) -> str:
     if not m:
         raise FetchError("arxiv_404", url=url)
     return m.group(1)
+
+
+def _is_valid_pdf(p: Path) -> bool:
+    try:
+        with open(p, "rb") as f:
+            return f.read(5).startswith(b"%PDF-")
+    except OSError:
+        return False
+
+
+def fetch_by_arxiv_id(arxiv_id: str, dest: Path) -> Path:
+    """根据 arXiv ID 下载 PDF。返回本地路径。"""
+    validate_arxiv_id(arxiv_id)
+    normalized = normalize_arxiv_id(arxiv_id)
+    dest = Path(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+
+    target = dest / f"{normalized}.pdf"
+    if target.exists() and _is_valid_pdf(target):
+        return target  # 已存在，跳过
+
+    try:
+        search = arxiv.Search(id_list=[arxiv_id])
+        client = arxiv.Client(page_size=1, delay_seconds=3.0, num_retries=3)
+        result = next(client.results(search))
+        result.download_pdf(dirpath=str(dest), filename=f"{normalized}.pdf")
+    except arxiv.UnexpectedEmptyPageError as e:
+        raise FetchError("arxiv_404", arxiv_id=arxiv_id) from e
+    except StopIteration as e:
+        raise FetchError("arxiv_404", arxiv_id=arxiv_id) from e
+    except arxiv.HTTPError as e:
+        if getattr(e, "status", None) == 503:
+            raise FetchError("arxiv_503", arxiv_id=arxiv_id) from e
+        raise FetchError("arxiv_timeout", arxiv_id=arxiv_id) from e
+    except Exception as e:
+        raise FetchError("default", arxiv_id=arxiv_id, detail=str(e)) from e
+
+    if not target.exists() or not _is_valid_pdf(target):
+        raise FetchError("invalid_pdf", arxiv_id=arxiv_id)
+
+    return target

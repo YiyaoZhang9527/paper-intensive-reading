@@ -1,4 +1,6 @@
 import pytest
+from pathlib import Path
+from datetime import date
 from paper_intensive_reading.arxiv_fetch import (
     validate_arxiv_id, normalize_arxiv_id, extract_id_from_url
 )
@@ -55,3 +57,47 @@ class TestExtractIdFromUrl:
     def test_invalid_url(self):
         with pytest.raises(FetchError):
             extract_id_from_url("https://example.com/not-an-arxiv")
+
+
+class TestDownloadPdf:
+    def test_download_to_path(self, tmp_workspace, monkeypatch):
+        from paper_intensive_reading import arxiv_fetch
+
+        class MockResult:
+            entry_id = "http://arxiv.org/abs/2302.13971v1"
+            title = "Test Paper"
+            pdf_url = "http://arxiv.org/pdf/2302.13971v1"
+            authors = [type("A", (), {"name": "Test Author"})()]
+            summary = "Test abstract."
+            published = date(2023, 2, 27)
+
+            def download_pdf(self, dirpath, filename):
+                Path(dirpath).mkdir(parents=True, exist_ok=True)
+                Path(dirpath, filename).write_bytes(b"%PDF-1.4\n%fake\n")
+                return str(Path(dirpath) / filename)
+
+        class MockClient:
+            def __init__(self, *args, **kwargs): pass
+            def results(self, search): return iter([MockResult()])
+
+        monkeypatch.setattr(arxiv_fetch.arxiv, "Client", MockClient)
+
+        pdf_path = arxiv_fetch.fetch_by_arxiv_id("2302.13971", dest=tmp_workspace)
+        assert pdf_path.exists()
+        assert pdf_path.name == "2302.13971.pdf"
+        assert pdf_path.stat().st_size > 0
+
+    def test_invalid_id_raises(self, tmp_workspace):
+        from paper_intensive_reading import arxiv_fetch
+        with pytest.raises(FetchError):
+            arxiv_fetch.fetch_by_arxiv_id("bad-id", dest=tmp_workspace)
+
+    def test_cached_pdf_not_redownloaded(self, tmp_workspace):
+        """已存在的 PDF 不重新下载"""
+        from paper_intensive_reading import arxiv_fetch
+        cached = tmp_workspace / "2302.13971.pdf"
+        cached.write_bytes(b"%PDF-1.4\n%already cached\n")
+
+        # 即使 arxiv 调用失败，缓存也应被返回
+        pdf_path = arxiv_fetch.fetch_by_arxiv_id("2302.13971", dest=tmp_workspace)
+        assert pdf_path == cached
