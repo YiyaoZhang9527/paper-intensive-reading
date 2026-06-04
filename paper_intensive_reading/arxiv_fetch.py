@@ -80,3 +80,21 @@ def fetch_by_arxiv_id(arxiv_id: str, dest: Path) -> Path:
         raise FetchError("invalid_pdf", arxiv_id=arxiv_id)
 
     return target
+
+
+def fetch_by_url(url: str, dest: Path) -> Path:
+    """从 arXiv URL 下载 PDF。"""
+    arxiv_id = extract_id_from_url(url)
+    return fetch_by_arxiv_id(arxiv_id, dest=dest)
+
+
+def fetch_by_local_path(path: str | Path) -> Path:
+    """验证并返回本地 PDF 路径。"""
+    p = Path(path)
+    if not p.exists() or not p.is_file():
+        raise FetchError("arxiv_404", path=str(p), detail="文件不存在")
+    if p.suffix.lower() != ".pdf":
+        raise FetchError("invalid_pdf", path=str(p), detail="扩展名不是 .pdf")
+    if not _is_valid_pdf(p):
+        raise FetchError("invalid_pdf", path=str(p), detail="不是有效 PDF")
+    return p

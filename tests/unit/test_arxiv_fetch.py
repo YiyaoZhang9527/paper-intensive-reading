@@ -101,3 +101,55 @@ class TestDownloadPdf:
         # 即使 arxiv 调用失败，缓存也应被返回
         pdf_path = arxiv_fetch.fetch_by_arxiv_id("2302.13971", dest=tmp_workspace)
         assert pdf_path == cached
+
+
+class TestFetchByUrl:
+    def test_fetch_from_url(self, tmp_workspace, monkeypatch):
+        from paper_intensive_reading import arxiv_fetch
+
+        def mock_fetch_by_id(arxiv_id, dest):
+            target = dest / f"{arxiv_id}.pdf"
+            target.write_bytes(b"%PDF-1.4\n%fake\n")
+            return target
+
+        monkeypatch.setattr(arxiv_fetch, "fetch_by_arxiv_id", mock_fetch_by_id)
+
+        pdf_path = arxiv_fetch.fetch_by_url("https://arxiv.org/abs/2302.13971", dest=tmp_workspace)
+        assert pdf_path.exists()
+        assert pdf_path.name == "2302.13971.pdf"
+
+    def test_non_arxiv_url_raises(self, tmp_workspace):
+        from paper_intensive_reading import arxiv_fetch
+        with pytest.raises(FetchError):
+            arxiv_fetch.fetch_by_url("https://example.com/paper.pdf", dest=tmp_workspace)
+
+
+class TestFetchByLocalPath:
+    def test_valid_local_pdf(self, tmp_workspace):
+        from paper_intensive_reading import arxiv_fetch
+        pdf = tmp_workspace / "test.pdf"
+        pdf.write_bytes(b"%PDF-1.4\n%fake pdf content here\n")
+
+        result = arxiv_fetch.fetch_by_local_path(str(pdf))
+        assert result == pdf
+
+    def test_nonexistent_path_raises(self):
+        from paper_intensive_reading import arxiv_fetch
+        with pytest.raises(FetchError) as exc:
+            arxiv_fetch.fetch_by_local_path("/tmp/does-not-exist.pdf")
+        assert exc.value.subtype == "arxiv_404"
+
+    def test_non_pdf_file_raises(self, tmp_workspace):
+        from paper_intensive_reading import arxiv_fetch
+        txt = tmp_workspace / "test.txt"
+        txt.write_text("not a pdf")
+        with pytest.raises(FetchError):
+            arxiv_fetch.fetch_by_local_path(str(txt))
+
+    def test_magic_byte_validation(self, tmp_workspace):
+        from paper_intensive_reading import arxiv_fetch
+        pdf = tmp_workspace / "fake.pdf"
+        pdf.write_bytes(b"NOT A PDF AT ALL")
+        with pytest.raises(FetchError) as exc:
+            arxiv_fetch.fetch_by_local_path(str(pdf))
+        assert exc.value.subtype == "invalid_pdf"
