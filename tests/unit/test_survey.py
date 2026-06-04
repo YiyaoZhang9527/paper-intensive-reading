@@ -66,3 +66,38 @@ class TestBuildSurvey:
         assert result["query"] == "Test query"
         assert len(result["papers"]) == 2
         assert result["papers"][0]["arxiv_id"] == "a"  # 引用多排前
+
+
+class TestAddToList:
+    def test_add_all_to_paper_store(self, tmp_db, monkeypatch):
+        from paper_intensive_reading.survey import add_survey_results_to_list
+        from paper_intensive_reading.paper_store import init_db, get_paper
+        init_db(tmp_db)
+
+        result = {
+            "query": "LLM",
+            "papers": [
+                {"arxiv_id": "2302.13971", "title": "LLaMA"},
+                {"arxiv_id": "2304.08485", "title": "QLoRA"},
+            ],
+        }
+        added = add_survey_results_to_list(result, db_path=tmp_db)
+        assert len(added) == 2
+        assert get_paper(tmp_db, "2302.13971") is not None
+
+    def test_selective_add(self, tmp_db, monkeypatch):
+        from paper_intensive_reading.survey import add_survey_results_to_list
+        from paper_intensive_reading.paper_store import init_db, get_paper
+        init_db(tmp_db)
+
+        result = {
+            "query": "x",
+            "papers": [
+                {"arxiv_id": "2302.13971", "title": "LLaMA"},
+                {"arxiv_id": "2304.08485", "title": "QLoRA"},
+            ],
+        }
+        added = add_survey_results_to_list(result, db_path=tmp_db, arxiv_ids=["2302.13971"])
+        assert len(added) == 1
+        assert get_paper(tmp_db, "2302.13971") is not None
+        assert get_paper(tmp_db, "2304.08485") is None

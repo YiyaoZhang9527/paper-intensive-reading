@@ -67,3 +67,22 @@ def build_survey_result(query: str, papers: list[Paper]) -> dict:
         "papers": ranked,
         "generated_at": date.today().isoformat(),
     }
+
+
+def add_survey_results_to_list(
+    result: dict, db_path, arxiv_ids: list[str] | None = None,
+) -> list[str]:
+    """把调研结果里的论文添加到阅读清单。arxiv_ids=None 表示全部添加。"""
+    from .paper_store import add_paper
+    added = []
+    for p in result.get("papers", []):
+        if arxiv_ids and p["arxiv_id"] not in arxiv_ids:
+            continue
+        add_paper(db_path, {
+            "arxiv_id": p["arxiv_id"], "title": p["title"],
+            "authors": p.get("authors", []), "affiliations": [],
+            "abstract": p.get("abstract", ""), "published": date(p.get("year", 2024), 1, 1),
+            "pdf_path": "",
+        })
+        added.append(p["arxiv_id"])
+    return added
