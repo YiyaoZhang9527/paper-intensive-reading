@@ -18,3 +18,7 @@ data/reading-list.sqlite
 data/reading-list.sqlite-journal
 
 !tests/fixtures/
+
+# 项目级 skill 副本（不提交，源在项目根）
+.opencode/
+.claude/
