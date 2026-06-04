@@ -63,3 +63,44 @@ class TestExtractMetadata:
         assert "title" in meta
         assert "authors" in meta
         assert isinstance(meta["authors"], list)
+
+
+class TestExtractSections:
+    def test_recognizes_standard_sections(self, tmp_path):
+        from paper_intensive_reading.pdf_parse import extract_sections
+        import fitz
+
+        pdf = tmp_path / "test.pdf"
+        doc = fitz.open()
+        for page_text in [
+            "Title\n\nAbstract content here.",
+            "1 Introduction\n\nThis is the intro.",
+            "2 Method\n\nOur method is great.",
+            "2.1 Submethod\n\nDetails.",
+            "3 Experiments\n\nResults are good.",
+        ]:
+            page = doc.new_page()
+            page.insert_text((50, 50), page_text)
+        doc.save(str(pdf))
+        doc.close()
+
+        sections = extract_sections(pdf)
+        titles = [s.title for s in sections]
+        assert any("Introduction" in t for t in titles)
+        assert any("Method" in t for t in titles)
+        assert any("Experiments" in t for t in titles)
+
+    def test_section_numbers(self, tmp_path):
+        from paper_intensive_reading.pdf_parse import extract_sections
+        import fitz
+
+        pdf = tmp_path / "test.pdf"
+        doc = fitz.open()
+        doc.new_page().insert_text((50, 50), "1 Introduction\n\nBody")
+        doc.new_page().insert_text((50, 50), "2.1 Sub\n\nBody")
+        doc.save(str(pdf))
+        doc.close()
+
+        sections = extract_sections(pdf)
+        assert any(s.number == "1" for s in sections)
+        assert any(s.number == "2.1" for s in sections)

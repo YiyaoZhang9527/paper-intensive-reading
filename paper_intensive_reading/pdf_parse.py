@@ -67,3 +67,56 @@ def extract_metadata(pdf_path: Path) -> dict:
             if lines:
                 metadata["title"] = lines[0][:200]
     return metadata
+
+
+SECTION_PATTERN = re.compile(
+    r"^(\d+(?:\.\d+)*)\s+([A-Z][A-Za-z][A-Za-z0-9 \-:_&/]{1,80})$",
+    re.MULTILINE,
+)
+
+
+def _looks_like_section_title(line: str) -> tuple[str, str] | None:
+    line = line.strip()
+    if not line or len(line) > 100:
+        return None
+    m = SECTION_PATTERN.match(line)
+    if m:
+        return m.group(1), m.group(2).strip()
+    return None
+
+
+def extract_sections(pdf_path: Path) -> list[Section]:
+    """从 PDF 提取章节结构。"""
+    pdf_path = Path(pdf_path)
+    sections: list[Section] = []
+    current: Section | None = None
+    body_lines: list[str] = []
+
+    with fitz.open(pdf_path) as doc:
+        for page_idx in range(doc.page_count):
+            text = doc[page_idx].get_text()
+            for line in text.split("\n"):
+                parsed = _looks_like_section_title(line)
+                if parsed is not None:
+                    if current is not None:
+                        current.paragraphs.append(
+                            Paragraph(text="\n".join(body_lines).strip(), page=page_idx)
+                        )
+                        sections.append(current)
+                    number, title = parsed
+                    level = number.count(".") + 1
+                    current = Section(number=number, title=title, level=level)
+                    body_lines = []
+                else:
+                    if current is not None:
+                        body_lines.append(line)
+
+        if current is not None:
+            current.paragraphs.append(
+                Paragraph(text="\n".join(body_lines).strip(), page=doc.page_count - 1)
+            )
+            sections.append(current)
+
+    if not sections:
+        raise ParseError("no_sections", path=str(pdf_path))
+    return sections
