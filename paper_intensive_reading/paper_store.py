@@ -177,3 +177,40 @@ def get_formula_attempts(
          "attempt": r["attempt"], "passed": bool(r["passed"]), "feedback": r["feedback"]}
         for r in rows
     ]
+
+
+def set_user_state(db_path: str | Path, arxiv_id: str, state: dict) -> None:
+    with sqlite3.connect(str(db_path)) as conn:
+        # 部分更新：先取旧值
+        row = conn.execute(
+            "SELECT depth_pref, skipped_formulas, pending_questions FROM user_state WHERE arxiv_id = ?",
+            (arxiv_id,),
+        ).fetchone()
+        old = {
+            "depth_pref": row[0] if row else "elementary",
+            "skipped_formulas": json.loads(row[1] or "[]") if row else [],
+            "pending_questions": json.loads(row[2] or "[]") if row else [],
+        }
+        merged = {**old, **state}
+        conn.execute(
+            "INSERT OR REPLACE INTO user_state (arxiv_id, depth_pref, skipped_formulas, pending_questions) VALUES (?, ?, ?, ?)",
+            (arxiv_id, merged["depth_pref"],
+             json.dumps(merged["skipped_formulas"]),
+             json.dumps(merged["pending_questions"])),
+        )
+        conn.commit()
+
+
+def get_user_state(db_path: str | Path, arxiv_id: str) -> dict:
+    with sqlite3.connect(str(db_path)) as conn:
+        row = conn.execute(
+            "SELECT depth_pref, skipped_formulas, pending_questions FROM user_state WHERE arxiv_id = ?",
+            (arxiv_id,),
+        ).fetchone()
+    if not row:
+        return {"depth_pref": "elementary", "skipped_formulas": [], "pending_questions": []}
+    return {
+        "depth_pref": row[0],
+        "skipped_formulas": json.loads(row[1] or "[]"),
+        "pending_questions": json.loads(row[2] or "[]"),
+    }

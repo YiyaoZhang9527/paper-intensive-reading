@@ -106,3 +106,28 @@ class TestFormulaAttempts:
         assert attempts[0]["passed"] is True
         assert attempts[1]["passed"] is False
         assert attempts[2]["passed"] is True
+
+
+class TestUserState:
+    def test_set_get_state(self, tmp_db):
+        from paper_intensive_reading.paper_store import set_user_state, get_user_state
+        init_db(tmp_db)
+        set_user_state(tmp_db, "2302.13971", {
+            "depth_pref": "elementary",
+            "skipped_formulas": ["(3)", "(7)"],
+            "pending_questions": ["What is RoPE?"],
+        })
+        state = get_user_state(tmp_db, "2302.13971")
+        assert state["depth_pref"] == "elementary"
+        assert state["skipped_formulas"] == ["(3)", "(7)"]
+        assert state["pending_questions"] == ["What is RoPE?"]
+
+    def test_update_partial(self, tmp_db):
+        from paper_intensive_reading.paper_store import set_user_state, get_user_state
+        init_db(tmp_db)
+        set_user_state(tmp_db, "2302.13971", {"depth_pref": "medium"})
+        # 部分更新
+        set_user_state(tmp_db, "2302.13971", {"pending_questions": ["new q"]})
+        state = get_user_state(tmp_db, "2302.13971")
+        assert state["depth_pref"] == "medium"  # 保留
+        assert state["pending_questions"] == ["new q"]  # 新增
