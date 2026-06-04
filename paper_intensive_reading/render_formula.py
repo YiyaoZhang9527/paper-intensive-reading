@@ -47,3 +47,22 @@ def render_to_png(latex: str, **kwargs) -> bytes:
     finally:
         if tmp.exists():
             tmp.unlink()
+
+
+def render_batch(
+    formulas: list[tuple[str, str]], out_dir: Path,
+    skip_failures: bool = True, **render_kwargs,
+) -> dict[str, Path]:
+    """批量渲染公式。"""
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    results: dict[str, Path] = {}
+    for name, latex in formulas:
+        out_path = out_dir / f"{name}.png"
+        try:
+            render(latex, out_path=out_path, **render_kwargs)
+            results[name] = out_path
+        except ParseError:
+            if not skip_failures:
+                raise
+    return results
